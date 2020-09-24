@@ -404,8 +404,8 @@ type CustomerRepository interface {
 	updateCustomerAddress(customerID, addressID string, req updateCustomerAddressRequest) error
 	deleteCustomerAddress(customerID string, addressID string) error
 
-	getLatestCustomerOFACSearch(customerID string) (*ofacSearchResult, error)
-	saveCustomerOFACSearch(customerID string, result ofacSearchResult) error
+	getLatestCustomerOFACSearch(customerID string) (*client.OfacSearch, error)
+	saveCustomerOFACSearch(customerID string, result client.OfacSearch) error
 }
 
 func NewCustomerRepo(logger log.Logger, db *sql.DB) CustomerRepository {
@@ -443,7 +443,7 @@ func (r *sqlCustomerRepository) createCustomer(c *client.Customer, namespace str
 	}
 
 	// Insert customer record
-	query := `insert into customers (customer_id, first_name, middle_name, last_name, nick_name, suffix, type, birth_date, status, email, created_at, last_modified, 
+	query := `insert into customers (customer_id, first_name, middle_name, last_name, nick_name, suffix, type, birth_date, status, email, created_at, last_modified,
 	namespace)
 values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
 	stmt, err := tx.Prepare(query)
@@ -480,7 +480,7 @@ func (r *sqlCustomerRepository) updateCustomer(c *client.Customer, namespace str
 		return err
 	}
 
-	query := `update customers set first_name = ?, middle_name = ?, last_name = ?, nick_name = ?, suffix = ?, type = ?, birth_date = ?, status = ?, email =?, 
+	query := `update customers set first_name = ?, middle_name = ?, last_name = ?, nick_name = ?, suffix = ?, type = ?, birth_date = ?, status = ?, email =?,
 	last_modified = ?,
 	namespace = ? where customer_id = ? and deleted_at is null;`
 	stmt, err := tx.Prepare(query)
@@ -539,7 +539,7 @@ func (r *sqlCustomerRepository) updatePhonesByCustomerID(tx *sql.Tx, customerID 
 }
 
 func (r *sqlCustomerRepository) updateAddressesByCustomerID(tx *sql.Tx, customerID string, addresses []client.CustomerAddress) error {
-	query := `replace into customers_addresses(address_id, customer_id, type, address1, address2, city, state, postal_code, country, validated) values (?, ?, ?, ?, ?, ?, ?, ?, 
+	query := `replace into customers_addresses(address_id, customer_id, type, address1, address2, city, state, postal_code, country, validated) values (?, ?, ?, ?, ?, ?, ?, ?,
 	?, ?);`
 	stmt, err := tx.Prepare(query)
 	if err != nil {
@@ -760,7 +760,7 @@ func (r *sqlCustomerRepository) addCustomerAddress(customerID string, req addres
 }
 
 func (r *sqlCustomerRepository) updateCustomerAddress(customerID, addressID string, req updateCustomerAddressRequest) error {
-	query := `update customers_addresses set type = ?, address1 = ?, address2 = ?, city = ?, state = ?, postal_code = ?, country = ?, 
+	query := `update customers_addresses set type = ?, address1 = ?, address2 = ?, city = ?, state = ?, postal_code = ?, country = ?,
 	validated = ? where customer_id = ? and address_id = ? and deleted_at is null;`
 	stmt, err := r.db.Prepare(query)
 	if err != nil {
@@ -797,7 +797,7 @@ func (r *sqlCustomerRepository) deleteCustomerAddress(customerID string, address
 	return err
 }
 
-func (r *sqlCustomerRepository) getLatestCustomerOFACSearch(customerID string) (*ofacSearchResult, error) {
+func (r *sqlCustomerRepository) getLatestCustomerOFACSearch(customerID string) (*client.OfacSearch, error) {
 	query := `select entity_id, sdn_name, sdn_type, percentage_match, created_at from customer_ofac_searches where customer_id = ? order by created_at desc limit 1;`
 	stmt, err := r.db.Prepare(query)
 	if err != nil {
@@ -806,8 +806,8 @@ func (r *sqlCustomerRepository) getLatestCustomerOFACSearch(customerID string) (
 	defer stmt.Close()
 
 	row := stmt.QueryRow(customerID)
-	var res ofacSearchResult
-	if err := row.Scan(&res.EntityID, &res.SDNName, &res.SDNType, &res.Match, &res.CreatedAt); err != nil {
+	var res client.OfacSearch
+	if err := row.Scan(&res.EntityID, &res.SdnName, &res.SdnType, &res.Match, &res.CreatedAt); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil // nothing found
 		}
@@ -816,7 +816,7 @@ func (r *sqlCustomerRepository) getLatestCustomerOFACSearch(customerID string) (
 	return &res, nil
 }
 
-func (r *sqlCustomerRepository) saveCustomerOFACSearch(customerID string, result ofacSearchResult) error {
+func (r *sqlCustomerRepository) saveCustomerOFACSearch(customerID string, result client.OfacSearch) error {
 	query := `insert into customer_ofac_searches (customer_id, entity_id, sdn_name, sdn_type, percentage_match, created_at) values (?, ?, ?, ?, ?, ?);`
 	stmt, err := r.db.Prepare(query)
 	if err != nil {
@@ -828,7 +828,7 @@ func (r *sqlCustomerRepository) saveCustomerOFACSearch(customerID string, result
 		result.CreatedAt = time.Now()
 	}
 
-	if _, err := stmt.Exec(customerID, result.EntityID, result.SDNName, result.SDNType, result.Match, result.CreatedAt); err != nil {
+	if _, err := stmt.Exec(customerID, result.EntityID, result.SdnName, result.SdnType, result.Match, result.CreatedAt); err != nil {
 		return fmt.Errorf("saveCustomerOFACSearch: exec: %v", err)
 	}
 	return nil
